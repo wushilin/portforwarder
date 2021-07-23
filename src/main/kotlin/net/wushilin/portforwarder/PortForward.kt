@@ -178,7 +178,7 @@ fun main(args: Array<String>) {
                 throw IllegalArgumentException("Invalid port")
             }
         } catch (ex: Exception) {
-            error("${srcTokens[1]} or ${destTokens[1]} are not valid ports.")
+            error("${srcTokens[1]} or ${destTokens[1]} are not valid ports ($ex)")
             exitProcess(1)
         }
         val serverSocket = ServerSocketChannel.open()
@@ -188,7 +188,7 @@ fun main(args: Array<String>) {
             serverSocket.configureBlocking(false)
             serverSocket.register(selector, SelectionKey.OP_ACCEPT);
         } catch(ex:Exception) {
-            error("Invalid binding option $firstToken.")
+            error("Invalid binding option $firstToken ($ex)")
             exitProcess(1)
         }
         info("Bound to $firstToken, forwarding to $secondToken")

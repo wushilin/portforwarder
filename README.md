@@ -40,7 +40,33 @@ Connection to localhost port 2222 will be effectively connecting to remote.host.
 
 Connection to localmachine (any IP) port 1443 will be effectively connecting to www.google.com port 443
 
-NOTE: the source and target ports are separated by `::` (not single `:`)
+NOTE:
+
+the source and target ports are separated by `::` (not single `:`)
+# Trying it out
+```shell
+$ ssh -p 2222 user@localhost
+user@localhost's password:
+Linux chairman 4.19.0-10-amd64 #1 SMP Debian 4.19.131-2 (2020-07-11) x86_64
+
+Welcome to Alibaba Cloud Elastic Compute Service !
+
+Last login: Fri Jul 23 16:28:04 2021 from [reducted]
+Welcome to fish, the friendly interactive shell
+user@chairman ~> ^D
+
+```
+# Checking
+## Take a look at java logs, what do you see?
+In general there should be logs for each connection, disconnection, bytes transferred.
+
+## Try multiple windows concurrently, does it work?
+Multiple sessions can be opened at the same time, since it is async NIO enabled.
+
+## Try SCP over the forwarded `ssh` port, does it run `as fast`?
+Based on my test, the SCP over forwarded port works equally well.
+It utilizes the zero copy technology.
+
 # Running as service in Linux (systemd flavor)
 ```shell
 # Sample systemd file
