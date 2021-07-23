@@ -33,6 +33,9 @@ val readyReaders = mutableMapOf<SocketChannel, SelectionKey>()
 // Temp buffer to avoid reallocating in loop
 val toRemove = mutableSetOf<SocketChannel>()
 
+// Temp buffer to hold the keys to test
+val toRead = mutableListOf<SocketChannel>()
+
 // Remember stats for the connections
 val stats = mutableMapOf<SocketChannel, Long>()
 
@@ -266,7 +269,9 @@ fun main(args: Array<String>) {
             iter.remove()
         }
         toRemove.clear()
-        for (nextReader in readyReaders.keys) {
+        toRead.clear()
+        toRead.addAll(readyReaders.keys)
+        for (nextReader in toRead) {
             val readerKey = readyReaders[nextReader]!!
             val nextWriter = pipes[nextReader]!!
             if (readyWriters.contains(nextWriter)) {
