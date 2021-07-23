@@ -46,11 +46,11 @@ the source and target ports are separated by `::` (not single `:`)
 
 # Other supported parameters
 ```shell
-You can add -Dxxx.xx=xxx to the program.
+You can add jvm parameters in the "-Dxxx.xx=xxx" way to the program.
 
 Supported params:
 ParameterName               default value
-buffer.size                 1MiB
+buffer.size                 1048576 (1MiB)
 stats.interval              30000 (30 seconds)
 enable.timestamp.in.log     true (enable timestamp in log or not)
 log.level                   0 (0 for everything, 1 for info+, 2 for warn+, 3 for error+, 4 for nothing)
