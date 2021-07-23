@@ -65,7 +65,7 @@ fun error(msg: String) {
 }
 
 fun log(level: Int, msg: String) {
-    if (level >= LOG_LEVEL) {
+    if (level > LOG_LEVEL) {
         if(enableTsInLog) {
             println("${ZonedDateTime.now()} - $msg")
         } else {
@@ -150,7 +150,8 @@ fun main(args: Array<String>) {
         println("Other options:")
         println(" -Denable.timestamp.in.log=false - disables log with timestamp (default false)")
         println(" -Dbuffer.size=512000 - set the global buffer size in bytes (default 1MiB)")
-        println(" -Dlog.level=0|1|2|3|4|5 - 0,1 = everything, 1=debug+, 2=info+, 3=warn+, 4=error+, 5 = nothing (default 0)")
+        println(" -Dlog.level=0|1|2|3|4|5|6 - 0=debug+, 1=info+, 2=warn+, 3=error+, 4=nothing  (default 0)")
+        println(" -Dstats.interval=30000 - min duration in milliseconds between stats reporting (default 30000 = 30 seconds)")
         exitProcess(1)
     }
 
@@ -164,6 +165,8 @@ fun main(args: Array<String>) {
     }
     LOG_LEVEL = paramFor("log.level", "0").toInt()
     info("log.level = $LOG_LEVEL")
+    reportInterval = paramFor("stats.interval", "30000").toLong()
+    info("stats.interval = $reportInterval")
     val selector: Selector = Selector.open()
     for (nextArg in args) {
         val tokens = nextArg.split("::")
@@ -215,7 +218,9 @@ fun main(args: Array<String>) {
     printLogo()
     info("Server started, stats will be reports every $reportInterval milliseconds...")
     while (true) {
-        selector.select(10000)
+        debug("Selecting channels with timeout of 5 seconds")
+        val selectCount = selector.select(5000)
+        debug("$selectCount key(s) selected.")
         val now = System.currentTimeMillis()
         if (now - lastReport > reportInterval) {
             val uptime = Duration.ofMillis(System.currentTimeMillis() - startTS)
@@ -258,28 +263,28 @@ fun main(args: Array<String>) {
                 key.interestOps(key.interestOps() and (SelectionKey.OP_WRITE.inv()))
             }
 
-            toRemove.clear()
-            for (nextReader in readyReaders.keys) {
-                val readerKey = readyReaders[nextReader]!!
-                val nextWriter = pipes[nextReader]!!
-                if (readyWriters.contains(nextWriter)) {
-                    val writerKey = readyWriters[nextWriter]!!
-                    readyWriters.remove(nextWriter)
-                    read(buffer, nextReader, nextWriter)
-                    toRemove.add(nextReader)
-                    // Re-register interest of reader and writers
-                    if (writerKey.isValid) {
-                        writerKey.interestOps(writerKey.interestOps() or SelectionKey.OP_WRITE)
-                    }
-                    if (readerKey.isValid) {
-                        readerKey.interestOps(readerKey.interestOps() or SelectionKey.OP_READ)
-                    }
+            iter.remove()
+        }
+        toRemove.clear()
+        for (nextReader in readyReaders.keys) {
+            val readerKey = readyReaders[nextReader]!!
+            val nextWriter = pipes[nextReader]!!
+            if (readyWriters.contains(nextWriter)) {
+                val writerKey = readyWriters[nextWriter]!!
+                readyWriters.remove(nextWriter)
+                read(buffer, nextReader, nextWriter)
+                toRemove.add(nextReader)
+                // Re-register interest of reader and writers
+                if (writerKey.isValid) {
+                    writerKey.interestOps(writerKey.interestOps() or SelectionKey.OP_WRITE)
+                }
+                if (readerKey.isValid) {
+                    readerKey.interestOps(readerKey.interestOps() or SelectionKey.OP_READ)
                 }
             }
-            for (nextKey in toRemove) {
-                readyReaders.remove(nextKey)
-            }
-            iter.remove()
+        }
+        for (nextKey in toRemove) {
+            readyReaders.remove(nextKey)
         }
     }
 }
@@ -366,8 +371,8 @@ fun remoteAddressFor(channel: SocketChannel?): String {
 
 fun cleanup(src: SocketChannel, dest: SocketChannel) {
     info("Pipe closed for ${remoteAddressFor(src)} <== ${localAddressFor(src)} ==> ${remoteAddressFor(dest)}")
-    debug("  >> Transfer stats: ${remoteAddressFor(src)} => ${remoteAddressFor(dest)}: ${bytesToString(stats[src])}")
-    debug("  >> Transfer stats: ${remoteAddressFor(src)} <= ${remoteAddressFor(dest)}: ${bytesToString(stats[dest])}")
+    info("  >> Transfer stats: ${remoteAddressFor(src)} => ${remoteAddressFor(dest)}: ${bytesToString(stats[src])}")
+    info("  >> Transfer stats: ${remoteAddressFor(src)} <= ${remoteAddressFor(dest)}: ${bytesToString(stats[dest])}")
 
     pipes.remove(dest)
     pipes.remove(src)
@@ -401,6 +406,7 @@ fun read(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
         cleanup(src, dest)
         return
     }
+    debug("Read $readCount bytes from ${remoteAddressFor(src)}")
     buffer.flip()
     while (buffer.remaining() > 0) {
         try {
@@ -411,6 +417,7 @@ fun read(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
             return
         }
     }
+    debug("Copied ${readCount} bytes from ${remoteAddressFor(src)} to ${remoteAddressFor(dest)}")
     totalBytes += readCount
     if (stats[src] == null) {
         stats[src] = readCount.toLong()
