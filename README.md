@@ -16,6 +16,66 @@ It runs a single thread, no matter how many connections.
 It uses only 1MB for buffer, no matter how many connections.
 
 It almost never allocate objects except for the SocketChannels, so it would not run GC (almost).
+
+# Show me the numbers!
+The following shows the original host, not via portforwarder performance.
+
+`loadtest -n 10000 -c 100 -k --insecure https://<reducted>`
+```shell
+(node:37017) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[Fri Jul 23 2021 20:13:37 GMT+0800 (Singapore Standard Time)] INFO Requests: 0 (0%), requests per second: 0, mean latency: 0 ms
+[Fri Jul 23 2021 20:13:42 GMT+0800 (Singapore Standard Time)] INFO Requests: 5999 (60%), requests per second: 1202, mean latency: 83.5 ms
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO 
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Target URL:          https://<reducted>
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Max requests:        10000
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Concurrency level:   100
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Agent:               keepalive
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO 
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Completed requests:  10000
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Total errors:        0
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Total time:          7.6069384950000005 s
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Requests per second: 1315
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Mean latency:        75 ms
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO 
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO Percentage of the requests served within a certain time
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO   50%      52 ms
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO   90%      100 ms
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO   95%      109 ms
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO   99%      621 ms
+[Fri Jul 23 2021 20:13:44 GMT+0800 (Singapore Standard Time)] INFO  100%      666 ms (longest request)
+```
+
+The following was run using nodejs loadtest with:
+
+`loadtest -n 10000 -c 100 -k --insecure https://localhost`
+
+```shell
+(node:37026) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[Fri Jul 23 2021 20:13:58 GMT+0800 (Singapore Standard Time)] INFO Requests: 0 (0%), requests per second: 0, mean latency: 0 ms
+[Fri Jul 23 2021 20:14:03 GMT+0800 (Singapore Standard Time)] INFO Requests: 5824 (58%), requests per second: 1167, mean latency: 86 ms
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO 
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Target URL:          https://localhost
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Max requests:        10000
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Concurrency level:   100
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Agent:               keepalive
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO 
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Completed requests:  10000
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Total errors:        0
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Total time:          7.6591180240000005 s
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Requests per second: 1306
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Mean latency:        75.8 ms
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO 
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO Percentage of the requests served within a certain time
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO   50%      54 ms
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO   90%      99 ms
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO   95%      142 ms
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO   99%      601 ms
+[Fri Jul 23 2021 20:14:06 GMT+0800 (Singapore Standard Time)] INFO  100%      666 ms (longest request)
+```
+As you can see, total time is almost identical. The request latency is almost the same!
+This program almost has no overhead in general.
 # Requirement
 ```shell
 Gradle 6.x
