@@ -43,6 +43,18 @@ Connection to localmachine (any IP) port 1443 will be effectively connecting to 
 NOTE:
 
 the source and target ports are separated by `::` (not single `:`)
+
+# Other supported parameters
+```shell
+You can add -Dxxx.xx=xxx to the program.
+
+Supported params:
+ParameterName               default value
+buffer.size                 1MiB
+stats.interval              30000 (30 seconds)
+enable.timestamp.in.log     true (enable timestamp in log or not)
+log.level                   0 (0 for everything, 1 for info+, 2 for warn+, 3 for error+, 4 for nothing)
+```
 # Trying it out
 ```shell
 $ ssh -p 2222 user@localhost
