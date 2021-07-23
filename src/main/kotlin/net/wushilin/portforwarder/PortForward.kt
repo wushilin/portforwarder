@@ -229,7 +229,7 @@ fun main(args: Array<String>) {
             val uptime = Duration.ofMillis(System.currentTimeMillis() - startTS)
 
             info(
-                "Status Update: Uptime ${uptime}, $activeRequests active requests, $totalRequests total requests, ${
+                "Status Update: Uptime ${uptime}, ${selector.keys().size} keys, $activeRequests active requests, $totalRequests total requests, ${
                     bytesToString(
                         totalBytes
                     )
@@ -298,7 +298,7 @@ fun connect(channel: SocketChannel): Boolean {
     return try {
         channel.finishConnect()
         // by default, connected channel is writable immediately.
-        debug("${remoteAddressFor(channel)} is connected (asynchronously).")
+        info("${remoteAddressFor(channel)} is connected (asynchronously).")
         true
     } catch (ex: Exception) {
         error("Remote address for ${remoteAddressFor(pipes[channel])} can't be connected ($ex)")
