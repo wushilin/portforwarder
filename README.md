@@ -1,5 +1,6 @@
 # Port forwarder project
-A NIO based, simple and scalable port forwarding written in Kotlin. It simply works
+A NIO based, simple and scalable port forwarding written in Kotlin. 
+It works like nginx. A single thread can handle thousands of concurrent connections.
 
 The program allows you to forward ports from the the host running this program to a remote host.
 
