@@ -57,13 +57,20 @@ var lastReport = 0L
 // time when this program was started
 var startTS = System.currentTimeMillis()
 
+// Enable Timestamp in log
+var enableTsInLog = true
+
 fun error(msg: String) {
     log(LOG_ERR, msg)
 }
 
 fun log(level: Int, msg: String) {
     if (level > LOG_LEVEL) {
-        println("${ZonedDateTime.now()} - $msg")
+        if(enableTsInLog) {
+            println("${ZonedDateTime.now()} - $msg")
+        } else {
+            println(msg)
+        }
     }
 }
 
@@ -138,9 +145,12 @@ fun main(args: Array<String>) {
         println("# java -jar port-forwarder-1.0.jar 127.0.0.1:22::ZM09.mycompany.com:22")
         println("This will allow you to ssh, or scp to remote server using ssh user@localhost")
         println("This program uses async IO, it is efficient, but single threaded.")
+        println("If you want to disable timestamp loggin (e.g. systemd), use with -Denable.timestamp.in.log=false")
         exitProcess(1)
     }
 
+    enableTsInLog = paramFor("enable.timestamp.in.log", "true").toBoolean()
+    println("enable.timestamp.in.log = $enableTsInLog")
     val selector: Selector = Selector.open()
     for (nextArg in args) {
         val tokens = nextArg.split("::")
