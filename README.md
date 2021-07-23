@@ -85,7 +85,7 @@ Windows, Mac, Linux(all supported)
 # Building
 
 ```shell
-$ gradle jar
+$ ./gradlew jar
 ```
 You will get the output in `build/libs/portforwarder-1.0.jar`.
 
