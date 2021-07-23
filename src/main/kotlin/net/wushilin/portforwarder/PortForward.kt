@@ -223,7 +223,7 @@ fun main(args: Array<String>) {
     while (true) {
         debug("Selecting channels with timeout of 5 seconds")
         val selectCount = selector.select(5000)
-        debug("$selectCount key(s) selected.")
+        debug("$selectCount key(s) selected. Ready Readers ${readyReaders.size}, Ready Writers ${readyWriters.size}")
         val now = System.currentTimeMillis()
         if (now - lastReport > reportInterval) {
             val uptime = Duration.ofMillis(System.currentTimeMillis() - startTS)
@@ -272,12 +272,12 @@ fun main(args: Array<String>) {
         toRead.clear()
         toRead.addAll(readyReaders.keys)
         for (nextReader in toRead) {
-            val readerKey = readyReaders[nextReader]!!
-            val nextWriter = pipes[nextReader]!!
+            val readerKey = readyReaders[nextReader] ?: continue
+            val nextWriter = pipes[nextReader]?: continue
             if (readyWriters.contains(nextWriter)) {
                 val writerKey = readyWriters[nextWriter]!!
                 readyWriters.remove(nextWriter)
-                read(buffer, nextReader, nextWriter)
+                copy(buffer, nextReader, nextWriter)
                 toRemove.add(nextReader)
                 // Re-register interest of reader and writers
                 if (writerKey.isValid) {
@@ -393,7 +393,7 @@ fun cleanup(src: SocketChannel, dest: SocketChannel) {
     return
 }
 
-fun read(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
+fun copy(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
     var readCount: Int
     try {
         buffer.clear()
