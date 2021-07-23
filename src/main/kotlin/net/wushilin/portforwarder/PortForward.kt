@@ -18,7 +18,7 @@ val LOG_INFO = 2
 val LOG_WARN = 3
 val LOG_ERR = 4
 
-var LOG_LEVEL = 0
+var LOG_LEVEL = 5
 
 // Stores the server socket and remote targets
 val targetMap = mutableMapOf<ServerSocketChannel, String>()
@@ -65,7 +65,7 @@ fun error(msg: String) {
 }
 
 fun log(level: Int, msg: String) {
-    if (level > LOG_LEVEL) {
+    if (level >= LOG_LEVEL) {
         if(enableTsInLog) {
             println("${ZonedDateTime.now()} - $msg")
         } else {
@@ -76,7 +76,8 @@ fun log(level: Int, msg: String) {
 
 fun printLogo() {
     val logo =
-        """██████╗  ██████╗ ██████╗ ████████╗    ███████╗ ██████╗ ██████╗ ██╗    ██╗ █████╗ ██████╗ ██████╗ ███████╗██████╗ 
+"""
+██████╗  ██████╗ ██████╗ ████████╗    ███████╗ ██████╗ ██████╗ ██╗    ██╗ █████╗ ██████╗ ██████╗ ███████╗██████╗ 
 ██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ██╔════╝██╔═══██╗██╔══██╗██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
 ██████╔╝██║   ██║██████╔╝   ██║       █████╗  ██║   ██║██████╔╝██║ █╗ ██║███████║██████╔╝██║  ██║█████╗  ██████╔╝
 ██╔═══╝ ██║   ██║██╔══██╗   ██║       ██╔══╝  ██║   ██║██╔══██╗██║███╗██║██╔══██║██╔══██╗██║  ██║██╔══╝  ██╔══██╗
@@ -88,8 +89,9 @@ fun printLogo() {
                 ██████╔╝ ╚████╔╝     ██║ █╗ ██║██║   ██║    ███████╗███████║██║██║     ██║██╔██╗ ██║             
                 ██╔══██╗  ╚██╔╝      ██║███╗██║██║   ██║    ╚════██║██╔══██║██║██║     ██║██║╚██╗██║             
                 ██████╔╝   ██║       ╚███╔███╔╝╚██████╔╝    ███████║██║  ██║██║███████╗██║██║ ╚████║             
-                ╚═════╝    ╚═╝        ╚══╝╚══╝  ╚═════╝     ╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ """
-    println(logo)
+                ╚═════╝    ╚═╝        ╚══╝╚══╝  ╚═════╝     ╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝╚═╝  ╚═══╝
+                """.trim()
+    info("\n$logo")
 }
 
 fun bytesToString(bytes: Long?): String? {
@@ -145,12 +147,23 @@ fun main(args: Array<String>) {
         println("# java -jar port-forwarder-1.0.jar 127.0.0.1:22::ZM09.mycompany.com:22")
         println("This will allow you to ssh, or scp to remote server using ssh user@localhost")
         println("This program uses async IO, it is efficient, but single threaded.")
-        println("If you want to disable timestamp loggin (e.g. systemd), use with -Denable.timestamp.in.log=false")
+        println("Other options:")
+        println(" -Denable.timestamp.in.log=false - disables log with timestamp (default false)")
+        println(" -Dbuffer.size=512000 - set the global buffer size in bytes (default 1MiB)")
+        println(" -Dlog.level=0|1|2|3|4|5 - 0,1 = everything, 1=debug+, 2=info+, 3=warn+, 4=error+, 5 = nothing (default 0)")
         exitProcess(1)
     }
 
     enableTsInLog = paramFor("enable.timestamp.in.log", "true").toBoolean()
-    println("enable.timestamp.in.log = $enableTsInLog")
+    info("enable.timestamp.in.log = $enableTsInLog")
+    bufferSize = paramFor("buffer.size", "1048576").toInt()
+    info("buffer.size = $bufferSize")
+    if(bufferSize < 1024) {
+        error("Require buffer.size >= 1024 for performance reason")
+        exitProcess(1)
+    }
+    LOG_LEVEL = paramFor("log.level", "0").toInt()
+    info("log.level = $LOG_LEVEL")
     val selector: Selector = Selector.open()
     for (nextArg in args) {
         val tokens = nextArg.split("::")
@@ -207,7 +220,7 @@ fun main(args: Array<String>) {
         if (now - lastReport > reportInterval) {
             val uptime = Duration.ofMillis(System.currentTimeMillis() - startTS)
 
-            debug(
+            info(
                 "Status Update: Uptime ${uptime}, $activeRequests active requests, $totalRequests total requests, ${
                     bytesToString(
                         totalBytes
@@ -275,10 +288,10 @@ fun connect(channel: SocketChannel): Boolean {
     return try {
         channel.finishConnect()
         // by default, connected channel is writable immediately.
-        debug("${addressFor(channel)} is connected (asynchronously).")
+        debug("${remoteAddressFor(channel)} is connected (asynchronously).")
         true
     } catch (ex: Exception) {
-        warn("Remote address for ${addressFor(pipes[channel])} can't be connected ($ex)")
+        error("Remote address for ${remoteAddressFor(pipes[channel])} can't be connected ($ex)")
         cleanup(channel, pipes[channel]!!)
         false
     }
@@ -288,8 +301,9 @@ fun accept(selector: Selector, serverSocket: ServerSocketChannel) {
     var client: SocketChannel?
     try {
         client = serverSocket.accept()
+        debug("Accepted new incoming connection from ${remoteAddressFor(client)} to ${client.localAddress}")
     } catch (ex: Exception) {
-        warn("Failed to accept a connection: ${ex}")
+        error("Failed to accept a connection: ${ex}")
         return
     }
     totalRequests++
@@ -307,8 +321,7 @@ fun accept(selector: Selector, serverSocket: ServerSocketChannel) {
         sockRemote.connect(inetAddress)
         sockRemote.register(selector, SelectionKey.OP_CONNECT)
     } catch (ex: Exception) {
-        warn("Failed to connect to remote ${target} (${ex})")
-        info("Pipe NOT setup for ${addressFor(client)} <== THIS-SERVER ==> ${target}")
+        error("Pipe NOT open for ${remoteAddressFor(client)} <== ${localAddressFor(client)} ==> ${target} (target exception: $ex)")
         client.close()
         activeRequests--
         return
@@ -316,11 +329,7 @@ fun accept(selector: Selector, serverSocket: ServerSocketChannel) {
     pipes[client] = sockRemote
     pipes[sockRemote] = client
     info(
-        "Pipe setup for ${addressFor(client)} <== THIS-SERVER ==> ${addressFor(sockRemote)} (awaiting ${
-            addressFor(
-                sockRemote
-            )
-        } to be connected)"
+        "Pipe open for ${remoteAddressFor(client)} <== ${localAddressFor(client)} ==> ${remoteAddressFor(sockRemote)} (awaiting remote CONNECT)"
     )
 }
 
@@ -332,7 +341,18 @@ fun close(sock: SocketChannel) {
     }
 }
 
-fun addressFor(channel: SocketChannel?): String {
+fun localAddressFor(channel:SocketChannel?):String {
+    return if (channel != null) {
+        try {
+            "${channel.localAddress}"
+        } catch (ex: Exception) {
+            "[closed channel]"
+        }
+    } else {
+        "[null channel]"
+    }
+}
+fun remoteAddressFor(channel: SocketChannel?): String {
     return if (channel != null) {
         try {
             "${channel.remoteAddress}"
@@ -345,9 +365,9 @@ fun addressFor(channel: SocketChannel?): String {
 }
 
 fun cleanup(src: SocketChannel, dest: SocketChannel) {
-    info("Pipe closed for ${addressFor(src)} <== THIS-SERVER ==> ${addressFor(dest)}")
-    info("  >> Transfer stats: ${addressFor(src)} => ${addressFor(dest)}: ${bytesToString(stats[src])}")
-    info("  >> Transfer stats: ${addressFor(src)} <= ${addressFor(dest)}: ${bytesToString(stats[dest])}")
+    info("Pipe closed for ${remoteAddressFor(src)} <== ${localAddressFor(src)} ==> ${remoteAddressFor(dest)}")
+    debug("  >> Transfer stats: ${remoteAddressFor(src)} => ${remoteAddressFor(dest)}: ${bytesToString(stats[src])}")
+    debug("  >> Transfer stats: ${remoteAddressFor(src)} <= ${remoteAddressFor(dest)}: ${bytesToString(stats[dest])}")
 
     pipes.remove(dest)
     pipes.remove(src)
@@ -369,6 +389,7 @@ fun read(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
         buffer.clear()
         readCount = src.read(buffer)
     } catch (ex: Exception) {
+        warn("Read from ${remoteAddressFor(src)} failed ($ex)")
         cleanup(src, dest)
         return
     }
@@ -385,7 +406,7 @@ fun read(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
         try {
             dest.write(buffer)
         } catch (ex: Exception) {
-            warn("Failed to write to ${addressFor(dest)}: ${ex}")
+            warn("Failed to write to ${remoteAddressFor(dest)}: ${ex}, data might be lost!")
             cleanup(src, dest)
             return
         }
