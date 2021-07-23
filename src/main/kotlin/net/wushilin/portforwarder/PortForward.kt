@@ -200,7 +200,7 @@ fun main(args: Array<String>) {
 
 
     printLogo()
-    info("Starter Started, stats will be reports every $reportInterval milliseconds...")
+    info("Server started, stats will be reports every $reportInterval milliseconds...")
     while (true) {
         selector.select(10000)
         val now = System.currentTimeMillis()
