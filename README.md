@@ -1,5 +1,12 @@
 # Port forwarder project
 A NIO based, simple and scalable port forwarding written in Kotlin. 
+This program supports both TCP forwarding and UDP forwarding. 
+use `java -jar build/libs/portforwarder-1.0.jar` for TCP flavor.
+
+use `java -Dconn.track.max=10000 -Didle.timeout=3600000 -Dlog.level=0 -classpath build/libs/portforwarder-1.0.jar net.wushilin.portforwarder.udp.PortForwardKt 127.0.0.1:15353::8.8.8.8:53 127.0.0.1:1194::earth.wushilin.net:1194 127.0.0.1:1819::localhost:1818` for UDP forwarding.
+
+UDP forwarding is experimental at the moment, I haven't tested it enough.
+
 It works like nginx. A single thread can handle thousands of concurrent connections.
 
 The program allows you to forward ports from the the host running this program to a remote host.
