@@ -361,7 +361,6 @@ fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, sel
     buffer.flip()
     val readCount = buffer.remaining()
     val isListener = localListeners.contains(localAddress)
-    println("IsListener? $isListener ${localListeners} $remoteAddress ${channel.localAddress}")
     var destAddress:SocketAddress?
     if(isListener) {
         val targetString = targetMap[channel]!!
