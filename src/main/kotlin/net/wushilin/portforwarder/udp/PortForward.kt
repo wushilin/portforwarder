@@ -157,7 +157,11 @@ fun main(args: Array<String>) {
                         bytesToString(
                             totalBytes
                         )
-                    } transferred"
+                    } transferred, JVM FREE=${bytesToString(Runtime.getRuntime().freeMemory())}/TOTAL=${
+                        bytesToString(
+                            Runtime.getRuntime().totalMemory()
+                        )
+                    }/MAX=${bytesToString(Runtime.getRuntime().maxMemory())}\""
                 )
             }
             lastReport = now

@@ -14,11 +14,17 @@ import java.time.Duration
 import java.util.concurrent.LinkedBlockingDeque
 import kotlin.system.exitProcess
 
-data class CopyConfig(var reader:SocketChannel?, var writer:SocketChannel?, var readerKey:SelectionKey?, var writerKey:SelectionKey?) {
+data class CopyConfig(
+    var reader: SocketChannel?,
+    var writer: SocketChannel?,
+    var readerKey: SelectionKey?,
+    var writerKey: SelectionKey?
+) {
     init {
     }
 }
-val copyConfigPool = Pool(10000, {CopyConfig(null, null, null, null)}) {
+
+val copyConfigPool = Pool(10000, { CopyConfig(null, null, null, null) }) {
     it.reader = null
     it.writer = null
     it.readerKey = null
@@ -86,24 +92,24 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    Log.ENABLE_TS_IN_LOG = Config.get("enable.timestamp.in.log", true) {
-        it -> it.toBoolean()
+    Log.ENABLE_TS_IN_LOG = Config.get("enable.timestamp.in.log", true) { it ->
+        it.toBoolean()
     }
-    bufferSize = Config.get("buffer.size", 1048576, ) { i -> i.toInt()}
+    bufferSize = Config.get("buffer.size", 1048576) { i -> i.toInt() }
     if (bufferSize < 1024) {
-        if(Log.isErrorEnabled()) {
+        if (Log.isErrorEnabled()) {
             Log.error("Require buffer.size >= 1024 for performance reason")
         }
         exitProcess(1)
     }
-    Log.LOG_LEVEL = Config.get("log.level", 1) { i -> i.toInt()}
-    reportInterval = Config.get("stats.interval", 30000) { i -> i.toLong()}
+    Log.LOG_LEVEL = Config.get("log.level", 1) { i -> i.toInt() }
+    reportInterval = Config.get("stats.interval", 30000) { i -> i.toLong() }
     val selector: Selector = Selector.open()
-    lateinit var bindings:Map<SocketAddress, Pair<String, Int>>;
+    lateinit var bindings: Map<SocketAddress, Pair<String, Int>>;
     try {
         bindings = HostUtils.parse(args)
-    } catch(ex:Exception) {
-        if(Log.isErrorEnabled()) {
+    } catch (ex: Exception) {
+        if (Log.isErrorEnabled()) {
             Log.error("Invalid arguments found.")
             exitProcess(1)
         }
@@ -117,25 +123,25 @@ fun main(args: Array<String>) {
             serverSocket.configureBlocking(false)
             serverSocket.register(selector, SelectionKey.OP_ACCEPT);
         } catch (ex: Exception) {
-            if(Log.isErrorEnabled()) {
+            if (Log.isErrorEnabled()) {
                 Log.error("Invalid binding option $hostAddress($ex)")
             }
             exitProcess(1)
         }
-        if(Log.isInfoEnabled()) {
+        if (Log.isInfoEnabled()) {
             Log.info("Bound to $hostAddress, forwarding to $target")
         }
         targetMap[serverSocket] = target
     }
 
-    if(Log.isInfoEnabled()) {
+    if (Log.isInfoEnabled()) {
         Log.info("Allocating global buffer of ${bytesToString(bufferSize.toLong())} bytes...")
     }
     val buffer = ByteBuffer.allocate(bufferSize)
 
 
     Log.printLogo()
-    if(Log.isInfoEnabled()) {
+    if (Log.isInfoEnabled()) {
         Log.info("Server started, stats will be reports every $reportInterval milliseconds...")
     }
 
@@ -156,7 +162,11 @@ fun main(args: Array<String>) {
                         bytesToString(
                             totalBytes
                         )
-                    } transferred"
+                    } transferred, JVM FREE=${bytesToString(Runtime.getRuntime().freeMemory())}/TOTAL=${
+                        bytesToString(
+                            Runtime.getRuntime().totalMemory()
+                        )
+                    }/MAX=${bytesToString(Runtime.getRuntime().maxMemory())}"
                 )
             }
             lastReport = now
@@ -195,8 +205,8 @@ fun main(args: Array<String>) {
 
         toCopy.clear()
         for (nextReader in readyReaders.keys) {
-            val readerKey = readyReaders[nextReader]?:continue
-            val nextWriter = pipes[nextReader]?:continue
+            val readerKey = readyReaders[nextReader] ?: continue
+            val nextWriter = pipes[nextReader] ?: continue
             if (readyWriters.contains(nextWriter)) {
                 val writerKey = readyWriters[nextWriter]!!
                 val config = copyConfigPool.acquire()
@@ -207,7 +217,7 @@ fun main(args: Array<String>) {
                 toCopy.add(config)
             }
         }
-        for(task in toCopy) {
+        for (task in toCopy) {
             val nextReader = task.reader!!
             val nextWriter = task.writer!!
             copy(buffer, nextReader, nextWriter)
@@ -237,7 +247,7 @@ fun connect(channel: SocketChannel): Boolean {
     return try {
         channel.finishConnect()
         // by default, connected channel is writable immediately.
-        if(Log.isInfoEnabled()) {
+        if (Log.isInfoEnabled()) {
             Log.info("${remoteAddressFor(channel)} is connected (asynchronously).")
         }
         val now = System.currentTimeMillis()
@@ -245,7 +255,7 @@ fun connect(channel: SocketChannel): Boolean {
         linkUpTs[pipes[channel]!!] = now
         true
     } catch (ex: Exception) {
-        if(Log.isErrorEnabled()) {
+        if (Log.isErrorEnabled()) {
             Log.error("Remote address for ${remoteAddressFor(pipes[channel])} can't be connected ($ex)")
         }
         cleanup(pipes[channel]!!, channel)
@@ -253,7 +263,7 @@ fun connect(channel: SocketChannel): Boolean {
     }
 }
 
-fun connectQueueRun(element:Triple<Selector, SocketChannel, Pair<String, Int>>) {
+fun connectQueueRun(element: Triple<Selector, SocketChannel, Pair<String, Int>>) {
     val selector = element.first
     val client = element.second
     val target = element.third
@@ -266,7 +276,7 @@ fun connectQueueRun(element:Triple<Selector, SocketChannel, Pair<String, Int>>) 
         sockRemote.connect(inetAddress)
         sockRemote.register(selector, SelectionKey.OP_CONNECT)
     } catch (ex: Exception) {
-        if(Log.isErrorEnabled()) {
+        if (Log.isErrorEnabled()) {
             Log.error("Pipe NOT open for ${remoteAddressFor(client)} <== ${localAddressFor(client)} ==> ${target} (target exception: $ex)")
         }
         close(client)
@@ -274,7 +284,7 @@ fun connectQueueRun(element:Triple<Selector, SocketChannel, Pair<String, Int>>) 
     }
     pipes[client] = sockRemote
     pipes[sockRemote] = client
-    if(Log.isInfoEnabled()) {
+    if (Log.isInfoEnabled()) {
         Log.info(
             "Pipe open for ${remoteAddressFor(client)} <== ${localAddressFor(client)} ==> ${remoteAddressFor(sockRemote)} (awaiting remote CONNECT)"
         )
@@ -287,18 +297,18 @@ fun accept(selector: Selector, serverSocket: ServerSocketChannel) {
     var client: SocketChannel?
     try {
         client = serverSocket.accept()
-        if(Log.isDebugEnabled()) {
+        if (Log.isDebugEnabled()) {
             Log.debug("Accepted new incoming connection from ${remoteAddressFor(client)} to ${client.localAddress}")
         }
     } catch (ex: Exception) {
-        if(Log.isWarnEnabled()) {
+        if (Log.isWarnEnabled()) {
             Log.warn("Failed to accept a connection: ${ex}")
         }
         return
     }
     val target = targetMap[serverSocket]!!
     connectQueueRun(Triple(selector, client, target))
-    if(Log.isDebugEnabled()) {
+    if (Log.isDebugEnabled()) {
         Log.debug("Accepted connection from ${remoteAddressFor(client)}")
     }
 }
@@ -307,7 +317,7 @@ fun close(sock: SocketChannel) {
     try {
         sock.close();
     } catch (ex: Exception) {
-        if(Log.isWarnEnabled()) {
+        if (Log.isWarnEnabled()) {
             Log.warn("Failed to close ${sock}")
         }
     }
@@ -338,12 +348,12 @@ fun remoteAddressFor(channel: SocketChannel?): String {
 }
 
 fun cleanup(src: SocketChannel, dest: SocketChannel) {
-    if(Log.isInfoEnabled()) {
+    if (Log.isInfoEnabled()) {
         Log.info("Pipe closed for ${remoteAddressFor(src)} <== ${localAddressFor(src)} ==> ${remoteAddressFor(dest)}")
         Log.info("  >> Transfer stats: ${remoteAddressFor(src)} => ${remoteAddressFor(dest)}: ${bytesToString(stats[src])}")
         Log.info("  >> Transfer stats: ${remoteAddressFor(src)} <= ${remoteAddressFor(dest)}: ${bytesToString(stats[dest])}")
         val now = System.currentTimeMillis()
-        val up = linkUpTs[src]?:linkUpTs[dest]?:now
+        val up = linkUpTs[src] ?: linkUpTs[dest] ?: now
         val duration = Duration.ofMillis(now - up)
         Log.info("  >> Link up: $duration")
     }
@@ -365,7 +375,7 @@ fun copy(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
         buffer.clear()
         readCount = src.read(buffer)
     } catch (ex: Exception) {
-        if(Log.isWarnEnabled()) {
+        if (Log.isWarnEnabled()) {
             Log.warn("Read from ${remoteAddressFor(src)} failed ($ex)")
         }
         cleanup(src, dest)
@@ -379,7 +389,7 @@ fun copy(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
         cleanup(src, dest)
         return
     }
-    if(Log.isDebugEnabled()) {
+    if (Log.isDebugEnabled()) {
         Log.debug("Read $readCount bytes from ${remoteAddressFor(src)}")
     }
     buffer.flip()
@@ -387,14 +397,14 @@ fun copy(buffer: ByteBuffer, src: SocketChannel, dest: SocketChannel) {
         try {
             dest.write(buffer)
         } catch (ex: Exception) {
-            if(Log.isWarnEnabled()) {
+            if (Log.isWarnEnabled()) {
                 Log.warn("Failed to write to ${remoteAddressFor(dest)}: ${ex}, data might be lost!")
             }
             cleanup(src, dest)
             return
         }
     }
-    if(Log.isDebugEnabled()) {
+    if (Log.isDebugEnabled()) {
         Log.debug("Copied ${readCount} bytes from ${remoteAddressFor(src)} to ${remoteAddressFor(dest)}")
     }
     totalBytes += readCount
