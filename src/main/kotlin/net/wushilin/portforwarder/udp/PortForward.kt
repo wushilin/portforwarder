@@ -1,30 +1,19 @@
 package net.wushilin.portforwarder.udp
 
-import java.net.InetSocketAddress
+import net.wushilin.portforwarder.common.*
 import java.net.SocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.*
-import java.text.CharacterIterator
-import java.text.StringCharacterIterator
 import java.time.Duration
-import java.time.ZonedDateTime
 import kotlin.system.exitProcess
 
-
-val LOG_DEBUG = 1
-val LOG_INFO = 2
-val LOG_WARN = 3
-val LOG_ERR = 4
-
-var LOG_LEVEL = 5
-
 // Stores the incoming socket and remote targets, for server setup!
-val targetMap = mutableMapOf<DatagramChannel, String>()
+val targetMap = mutableMapOf<DatagramChannel, Pair<String, Int>>()
 
 // Stores all current bi-directional pipe mapping pairs
 // from clientaddress -> UDPPipe
 // from localaddress -> UDPipe
-lateinit var pipes:LRUCache<SocketAddress, UDPPipe>
+lateinit var pipes: LRUCache<SocketAddress, UDPPipe>
 
 // Link uptime, by using localClient address -> remote server.
 val linkUpTs = mutableMapOf<SocketAddress, Long>()
@@ -68,105 +57,6 @@ var cacheSize = 0
 // Check eviction
 var evictionCheckInterval = 30000L
 
-// Remember the expiry
-fun error(msg: String) {
-    log(LOG_ERR, msg)
-}
-
-fun log(level: Int, msg: String) {
-    if (level > LOG_LEVEL) {
-        if (enableTsInLog) {
-            println("${ZonedDateTime.now()} - $msg")
-        } else {
-            println(msg)
-        }
-    }
-}
-
-fun isInfoEnabled(): Boolean {
-    return LOG_INFO > LOG_LEVEL
-}
-
-fun isDebugEnabled(): Boolean {
-    return LOG_DEBUG > LOG_LEVEL
-}
-
-fun isWarnEnabled(): Boolean {
-    return LOG_WARN > LOG_LEVEL
-}
-
-fun isErrorEnabled(): Boolean {
-    return LOG_ERR > LOG_LEVEL
-}
-
-fun printLogo() {
-    val logo =
-        """
-██████╗  ██████╗ ██████╗ ████████╗    ███████╗ ██████╗ ██████╗ ██╗    ██╗ █████╗ ██████╗ ██████╗ ███████╗██████╗ 
-██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ██╔════╝██╔═══██╗██╔══██╗██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
-██████╔╝██║   ██║██████╔╝   ██║       █████╗  ██║   ██║██████╔╝██║ █╗ ██║███████║██████╔╝██║  ██║█████╗  ██████╔╝
-██╔═══╝ ██║   ██║██╔══██╗   ██║       ██╔══╝  ██║   ██║██╔══██╗██║███╗██║██╔══██║██╔══██╗██║  ██║██╔══╝  ██╔══██╗
-██║     ╚██████╔╝██║  ██║   ██║       ██║     ╚██████╔╝██║  ██║╚███╔███╔╝██║  ██║██║  ██║██████╔╝███████╗██║  ██║
-╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
-                                                                                                                 
-                ██████╗ ██╗   ██╗    ██╗    ██╗██╗   ██╗    ███████╗██╗  ██╗██╗██╗     ██╗███╗   ██╗             
-                ██╔══██╗╚██╗ ██╔╝    ██║    ██║██║   ██║    ██╔════╝██║  ██║██║██║     ██║████╗  ██║             
-                ██████╔╝ ╚████╔╝     ██║ █╗ ██║██║   ██║    ███████╗███████║██║██║     ██║██╔██╗ ██║             
-                ██╔══██╗  ╚██╔╝      ██║███╗██║██║   ██║    ╚════██║██╔══██║██║██║     ██║██║╚██╗██║             
-                ██████╔╝   ██║       ╚███╔███╔╝╚██████╔╝    ███████║██║  ██║██║███████╗██║██║ ╚████║             
-                ╚═════╝    ╚═╝        ╚══╝╚══╝  ╚═════╝     ╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝╚═╝  ╚═══╝
-                """.trim()
-    if(isInfoEnabled()) {
-        info("\n$logo")
-    }
-}
-
-fun bytesToString(bytes: Long?): String? {
-    if (bytes == null) {
-        return "0 B"
-    }
-    val absB = if (bytes == Long.MIN_VALUE) Long.MAX_VALUE else Math.abs(bytes)
-    if (absB < 1024) {
-        return "$bytes B"
-    }
-    var value = absB
-    val ci: CharacterIterator = StringCharacterIterator("KMGTPE")
-    var i = 40
-    while (i >= 0 && absB > 0xfffccccccccccccL shr i) {
-        value = value shr 10
-        ci.next()
-        i -= 10
-    }
-    value *= java.lang.Long.signum(bytes).toLong()
-    return String.format("%.1f %ciB", value / 1024.0, ci.current())
-}
-
-fun debug(msg: String) {
-    log(LOG_DEBUG, msg)
-}
-
-fun info(msg: String) {
-    log(LOG_INFO, msg)
-}
-
-fun warn(msg: String) {
-    log(LOG_WARN, msg)
-}
-
-fun paramFor(key: String, defaultValue: String): String {
-    val stringValue = System.getProperties().getProperty(key)
-    if (stringValue == null || stringValue.trim().isBlank()) {
-        return defaultValue
-    }
-
-    return stringValue.trim()
-}
-
-fun stringToSocketAddress(input:String):SocketAddress {
-    val tokens = input.split(":")
-    return InetSocketAddress(tokens[0], tokens[1].toInt())
-}
-
 fun main(args: Array<String>) {
     if (args.isEmpty()) {
         println("Usage: java -jar portforwarder.jar <localbind>::<remote_target>")
@@ -190,120 +80,59 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    enableTsInLog = paramFor("enable.timestamp.in.log", "true").toBoolean()
-    if(isInfoEnabled()) {
-        info("enable.timestamp.in.log = $enableTsInLog")
-    }
-    idleTimeout = paramFor("idle.timeout", "3600000").toLong()
-    if(isInfoEnabled()) {
-        info("idle.timeout = $idleTimeout")
-    }
-
-    evictionCheckInterval = paramFor("idle.check.interval", "5000").toLong()
-    if(isInfoEnabled()) {
-        info("idle.check.interval = $evictionCheckInterval")
-    }
-
-    bufferSize = paramFor("buffer.size", "1048576").toInt()
-    if(isInfoEnabled()) {
-        info("buffer.size = $bufferSize")
-    }
+    enableTsInLog = Config.get("enable.timestamp.in.log", true){ it -> it.toBoolean()}
+    idleTimeout = Config.get("idle.timeout", 3600000L){it -> it.toLong()}
+    evictionCheckInterval = Config.get("idle.check.interval", 5000) { it.toLong() }
+    bufferSize = Config.get("buffer.size", 1048576) {it -> it.toInt()}
     if (bufferSize < 100000) {
-        if(isErrorEnabled()) {
-            error("Require buffer.size >= 100000 (max UDP is 65535) or data might be lost.")
+        if(Log.isErrorEnabled()) {
+            Log.error("Require buffer.size >= 100000 (max UDP is 65535) or data might be lost.")
         }
         exitProcess(1)
     }
-    LOG_LEVEL = paramFor("log.level", "1").toInt()
-    if(isInfoEnabled()) {
-        info("log.level = $LOG_LEVEL")
-    }
-    reportInterval = paramFor("stats.interval", "30000").toLong()
-    if(isInfoEnabled()) {
-        info("stats.interval = $reportInterval")
-    }
-
-    cacheSize = paramFor("conn.track.max", "10000").toInt()
-    if(isInfoEnabled()) {
-        info("conn.track.max = $cacheSize (adjusted to even number due to the pairing)")
-    }
+    Log.LOG_LEVEL = Config.get("log.level", 1){it -> it.toInt()}
+    reportInterval = Config.get("stats.interval", 30000){ it.toLong()}
+    cacheSize = Config.get("conn.track.max", 10000){ it.toInt()}
     pipes = LRUCache(cacheSize * 2)
     val selector: Selector = Selector.open()
-    for (nextArg in args) {
-        val tokens = nextArg.split("::")
-        if (tokens.size != 2) {
-            if(isErrorEnabled()) {
-                error("${nextArg} is invalid!")
-            }
-            exitProcess(1)
-        }
-        val firstToken = tokens[0]
-        val secondToken = tokens[1]
-
-        val srcTokens = firstToken.split(":")
-        val destTokens = secondToken.split(":")
-        if (srcTokens.size != 2) {
-            if(isErrorEnabled()) {
-                error("$firstToken is invalid!")
-            }
-            exitProcess(1)
-        }
-        if (destTokens.size != 2) {
-            if(isErrorEnabled()) {
-                error("$secondToken is invalid!")
-            }
-            exitProcess(1)
-        }
-        try {
-            val srcPort = srcTokens[1].toInt()
-            val destPort = destTokens[1].toInt()
-            if (srcPort > 65535 || destPort > 65535) {
-                throw IllegalArgumentException("Invalid port")
-            }
-        } catch (ex: Exception) {
-            if(isErrorEnabled()) {
-                error("${srcTokens[1]} or ${destTokens[1]} are not valid ports ($ex)")
-            }
-            exitProcess(1)
-        }
+    val argsParsed = HostUtils.parse(args)
+    for (nextArg in argsParsed.entries) {
+        val listenAddress = nextArg.key
+        val target = nextArg.value
         val serverSocket = DatagramChannel.open()
-        val hostAddress = InetSocketAddress(srcTokens[0], srcTokens[1].toInt())
         try {
-            serverSocket.bind(hostAddress)
+            serverSocket.bind(listenAddress)
             serverSocket.configureBlocking(false)
             serverSocket.register(selector, SelectionKey.OP_READ)
-            localListeners.add(hostAddress)
+            localListeners.add(listenAddress)
         } catch (ex: Exception) {
-            if(isErrorEnabled()) {
-                error("Invalid binding option $firstToken ($ex)")
+            if(Log.isErrorEnabled()) {
+                Log.error("Invalid binding option $listenAddress ($ex)")
             }
             exitProcess(1)
         }
-        if(isInfoEnabled()) {
-            info("Bound to $firstToken, forwarding to $secondToken")
+        if(Log.isInfoEnabled()) {
+            Log.info("Bound to $listenAddress, forwarding to $target")
         }
-        targetMap[serverSocket] = secondToken
+        targetMap[serverSocket] = target
     }
 
-    if(isInfoEnabled()) {
-        info("Allocating global buffer of ${bytesToString(bufferSize.toLong())} bytes...")
+    if(Log.isInfoEnabled()) {
+        Log.info("Allocating global buffer of ${bytesToString(bufferSize.toLong())} bytes...")
     }
     val buffer = ByteBuffer.allocate(bufferSize)
 
 
-    printLogo()
-    if(isInfoEnabled()) {
-        info("Server started, stats will be reports every $reportInterval milliseconds...")
+    Log.printLogo()
+    if(Log.isInfoEnabled()) {
+        Log.info("Server started, stats will be reports every $reportInterval milliseconds...")
     }
 
     var lastCheck = 0L
     while (true) {
-        if (isDebugEnabled()) {
-            debug("Selecting channels with timeout of 5 seconds")
-        }
         val selectCount = selector.select(5000)
-        if (isDebugEnabled()) {
-            debug("$selectCount key(s) selected.")
+        if (selectCount > 0 && Log.isDebugEnabled()) {
+            Log.debug("$selectCount key(s) selected.")
         }
         val now = System.currentTimeMillis()
         val elapsed = now - lastCheck
@@ -312,8 +141,8 @@ fun main(args: Array<String>) {
             val watermark = now - idleTimeout
             val evicted = pipes.evictBefore(watermark)
             if(evicted.isNotEmpty()) {
-                if (isInfoEnabled()) {
-                    info("Evicted ${evicted.size} connections due to idle timeout ($idleTimeout ms).")
+                if (Log.isInfoEnabled()) {
+                    Log.info("Evicted ${evicted.size} connections due to idle timeout ($idleTimeout ms).")
                 }
                 evicted.forEach {
                     cleanup(it)
@@ -322,8 +151,8 @@ fun main(args: Array<String>) {
         }
         if (now - lastReport > reportInterval) {
             val uptime = Duration.ofMillis(System.currentTimeMillis() - startTS)
-            if (isInfoEnabled()) {
-                info(
+            if (Log.isInfoEnabled()) {
+                Log.info(
                     "Status Update: Uptime ${uptime}, ${selector.keys().size} keys, $activeRequests active requests, $totalRequests total requests, ${
                         bytesToString(
                             totalBytes
@@ -346,14 +175,15 @@ fun main(args: Array<String>) {
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, selector:Selector) {
     buffer.clear()
     val remoteAddress: SocketAddress?
     try {
         remoteAddress = channel.receive(buffer)
     } catch(ex:Exception) {
-        if(isWarnEnabled()) {
-            warn("Failed to receive from local ${channel.localAddress}: $ex")
+        if(Log.isWarnEnabled()) {
+            Log.warn("Failed to receive from local ${channel.localAddress}: $ex")
         }
         return
     }
@@ -363,8 +193,8 @@ fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, sel
     val isListener = localListeners.contains(localAddress)
     var destAddress:SocketAddress?
     if(isListener) {
-        val targetString = targetMap[channel]!!
-        destAddress = stringToSocketAddress(targetString)
+        val targetPair = targetMap[channel]!!
+        destAddress = HostUtils.convertToAddress(targetPair)
         var eventPipe:UDPPipe?
         // client is ready to send to me.
         if(pipes.get(remoteAddress) == null) {
@@ -386,8 +216,8 @@ fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, sel
                 evictedCount++
             }
             if(evictedCount > 0) {
-                if(isInfoEnabled()) {
-                    info("Evicted $evictedCount connections due to max conn tracking ($cacheSize)")
+                if(Log.isInfoEnabled()) {
+                    Log.info("Evicted $evictedCount connections due to max conn tracking ($cacheSize)")
                 }
                 listOf(evicted1, evicted2).forEach {
                     cleanup(it)
@@ -395,16 +225,16 @@ fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, sel
             }
             activeRequests++
             totalRequests++
-            if(isInfoEnabled()) {
-                info("Setting up new client for ${remoteAddress} to ${destAddress}, via ${newClient.localAddress}")
+            if(Log.isInfoEnabled()) {
+                Log.info("Setting up new client for ${remoteAddress} to ${destAddress}, via ${newClient.localAddress}")
             }
             linkUpTs[newClient.localAddress] = System.currentTimeMillis()
             while(buffer.hasRemaining()) {
                 try {
                     newClient.write(buffer)
                 } catch(ex:Exception) {
-                    if(isWarnEnabled()) {
-                        warn("Failed to write to $destAddress, data might be lost: $ex")
+                    if(Log.isWarnEnabled()) {
+                        Log.warn("Failed to write to $destAddress, data might be lost: $ex")
                         break
                     }
                 }
@@ -416,8 +246,8 @@ fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, sel
                 try {
                     eventPipe.localClient.write(buffer)
                 } catch(ex:Exception) {
-                    if(isWarnEnabled()) {
-                        warn("Failed to write to $destAddress, data might be lost: $ex")
+                    if(Log.isWarnEnabled()) {
+                        Log.warn("Failed to write to $destAddress, data might be lost: $ex")
                     }
                     break
                 }
@@ -426,11 +256,10 @@ fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, sel
         addStats(remoteAddress, readCount)
     } else {
         // server's response
-        val localAddress = channel.localAddress
         val eventPipe = pipes.get(localAddress)
         if(eventPipe == null) {
-            if(isWarnEnabled()) {
-                warn("Unable to write $readCount bytes from $remoteAddress back to client. Client might be evicted.")
+            if(Log.isWarnEnabled()) {
+                Log.warn("Unable to write $readCount bytes from $remoteAddress back to client. Client might be evicted.")
             }
             return
         }
@@ -440,8 +269,8 @@ fun handleRead(channel:DatagramChannel, key:SelectionKey, buffer:ByteBuffer, sel
         }
         addStats(eventPipe.localClient.localAddress, readCount)
     }
-    if(isDebugEnabled()) {
-        debug("Copied ${readCount} bytes from $remoteAddress to $destAddress")
+    if(Log.isDebugEnabled()) {
+        Log.debug("Copied ${readCount} bytes from $remoteAddress to $destAddress")
     }
     totalBytes += readCount
 }
@@ -458,8 +287,8 @@ fun close(sock: DatagramChannel) {
     try {
         sock.close();
     } catch (ex: Exception) {
-        if(isWarnEnabled()) {
-            warn("Failed to close ${sock}")
+        if(Log.isWarnEnabled()) {
+            Log.warn("Failed to close ${sock}")
         }
     }
 }
@@ -471,14 +300,14 @@ fun cleanup(session:UDPPipe?) {
     if(session.closed) {
         return
     }
-    if(isInfoEnabled()) {
-        info("Pipe closed for ${session.client} <== ${session.listenAddress()} === ${session.localClientAddress()} ==> ${session.remote}")
-        info("  >> Transfer stats: ${session.client} => ${session.remote}: ${bytesToString(stats[session.client])}")
-        info("  >> Transfer stats: ${session.client} <= ${session.remote}: ${bytesToString(stats[session.localClient.localAddress])}")
+    if(Log.isInfoEnabled()) {
+        Log.info("Pipe closed for ${session.client} <== ${session.listenAddress()} === ${session.localClientAddress()} ==> ${session.remote}")
+        Log.info("  >> Transfer stats: ${session.client} => ${session.remote}: ${bytesToString(stats[session.client])}")
+        Log.info("  >> Transfer stats: ${session.client} <= ${session.remote}: ${bytesToString(stats[session.localClient.localAddress])}")
         val now = System.currentTimeMillis()
         val up = linkUpTs[session.localClientAddress()]?:now
         val duration = Duration.ofMillis(now - up)
-        info("  >> Link up: $duration")
+        Log.info("  >> Link up: $duration")
     }
     listOf(session.client, session.localListen.localAddress).forEach {
         pipes.remove(it)

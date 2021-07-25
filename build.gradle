@@ -22,7 +22,7 @@ test {
 jar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     manifest {
-        attributes "Main-Class": "net.wushilin.portforwarder.PortForwardKt"
+        attributes "Main-Class": "net.wushilin.portforwarder.tcp.PortForwardKt"
     }
 
     from {
