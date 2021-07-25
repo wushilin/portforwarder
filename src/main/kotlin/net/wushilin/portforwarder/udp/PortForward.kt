@@ -158,7 +158,7 @@ fun main(args: Array<String>) {
                         bytesToString(
                             Runtime.getRuntime().totalMemory()
                         )
-                    }/MAX=${bytesToString(Runtime.getRuntime().maxMemory())}\""
+                    }/MAX=${bytesToString(Runtime.getRuntime().maxMemory())}"
                 )
             }
             lastReport = now
