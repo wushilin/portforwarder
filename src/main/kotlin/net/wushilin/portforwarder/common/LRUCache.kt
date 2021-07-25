@@ -1,41 +1,11 @@
-package net.wushilin.portforwarder.udp
-
-
-fun main(args:Array<String>) {
-    val cache = LRUCache<String, String>(5);
-    cache.put("hello", "world")
-    println(cache)
-
-    cache.put("wu1", "shilin")
-    println(cache)
-
-    cache.put("wu2", "shilin")
-    println(cache)
-
-    cache.put("wu3", "shilin")
-    println(cache)
-
-    cache.put("wu4", "shilin")
-    println(cache)
-
-    cache.put("wu5", "shilin")
-    println(cache)
-
-    cache.put("wu6", "shilin")
-    println(cache)
-
-    println(cache.get("hello"))
-    println(cache.put("wu1", "newvalue"))
-    println(cache)
-    println(cache)
-}
+package net.wushilin.portforwarder.common
 
 data class TimestampedKV<K,V>(var key:K, var value:V) {
     var timestamp = System.currentTimeMillis()
 }
 
 class LRUCache<K, V>(val maxSize:Int) {
-    var nodeMap = mutableMapOf<K, Node<TimestampedKV<K,V>>>()
+    var nodeMap = mutableMapOf<K, Node<TimestampedKV<K, V>>>()
     var nodeList = NodeList<TimestampedKV<K, V>>()
 
     // Put a cache. Return the evicted object, if any. The evicted object should be cleaned up
@@ -47,7 +17,7 @@ class LRUCache<K, V>(val maxSize:Int) {
         if(nodeMap.containsKey(key)) {
             val currentNode = nodeMap[key]
             currentNode!!.value.value = value
-            currentNode!!.value.timestamp = System.currentTimeMillis()
+            currentNode.value.timestamp = System.currentTimeMillis()
             nodeList.removeNode(currentNode)
             nodeList.addNode(currentNode)
         } else {
@@ -107,7 +77,7 @@ class LRUCache<K, V>(val maxSize:Int) {
     }
 
     override fun toString():String {
-        return nodeMap?.toString() + ":" + nodeList?.toString()
+        return nodeMap.toString() + ":" + nodeList.toString()
     }
 
     fun size():Int {
@@ -125,7 +95,7 @@ class NodeList<T>() {
         return count
     }
 
-    fun addNode(newNode:Node<T>) {
+    fun addNode(newNode: Node<T>) {
         if(count == 0) {
             newNode.next = null
             newNode.prev = null
@@ -139,7 +109,7 @@ class NodeList<T>() {
         count++
     }
 
-    fun add(value:T):Node<T> {
+    fun add(value:T): Node<T> {
         if(count == 0) {
             head = Node(value, null, null)
             tail = head
@@ -152,7 +122,7 @@ class NodeList<T>() {
         return tail!!
     }
 
-    fun removeHead():Node<T>?{
+    fun removeHead(): Node<T>?{
         if(count == 0) {
             return null
         }
@@ -165,7 +135,7 @@ class NodeList<T>() {
         return result
     }
 
-    fun removeTail():Node<T>?{
+    fun removeTail(): Node<T>?{
         if(count == 0) {
             return null
         }
@@ -179,7 +149,7 @@ class NodeList<T>() {
         return result
     }
 
-    fun addHead(value:T):Node<T> {
+    fun addHead(value:T): Node<T> {
         if(count == 0) {
             return add(value)
         }
@@ -190,11 +160,11 @@ class NodeList<T>() {
         return newNode
     }
 
-    fun addTail(value:T):Node<T> {
+    fun addTail(value:T): Node<T> {
         return add(value)
     }
 
-    fun removeNode(node:Node<T>):Node<T>{
+    fun removeNode(node: Node<T>): Node<T> {
         if(head == node) {
             head = node.next
         }
@@ -231,7 +201,7 @@ class NodeList<T>() {
     }
 }
 
-data class Node<T>(var value:T, var prev:Node<T>?, var next:Node<T>?) {
+data class Node<T>(var value:T, var prev: Node<T>?, var next: Node<T>?) {
     override fun toString():String {
         return value.toString()
     }
