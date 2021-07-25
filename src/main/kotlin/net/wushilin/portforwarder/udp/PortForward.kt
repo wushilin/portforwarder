@@ -42,9 +42,6 @@ var lastReport = 0L
 // time when this program was started
 var startTS = System.currentTimeMillis()
 
-// Enable Timestamp in log
-var enableTsInLog = true
-
 // Set of local listener addresses
 var localListeners = mutableSetOf<SocketAddress>()
 
@@ -80,7 +77,7 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    enableTsInLog = Config.get("enable.timestamp.in.log", true){ it -> it.toBoolean()}
+    Log.ENABLE_TS_IN_LOG = Config.get("enable.timestamp.in.log", true){ it -> it.toBoolean()}
     idleTimeout = Config.get("idle.timeout", 3600000L){it -> it.toLong()}
     evictionCheckInterval = Config.get("idle.check.interval", 5000) { it.toLong() }
     bufferSize = Config.get("buffer.size", 1048576) {it -> it.toInt()}
