@@ -173,10 +173,9 @@ fun main(args: Array<String>) {
                         bytesToString(
                             Runtime.getRuntime().totalMemory()
                         )
-                    }, Sock hitRate(${channelPool.hitRate()})"
+                    }, UDP|PIPE hitRate(${channelPool.hitRate()}|${pipePool.hitRate()})"
                 )
-                Log.info("Object Count: Pipes(${pipes.size()}) Stats(${stats.size}) LinkUp(${linkUpTs.size}) Pool(${pipePool.size()})")
-                Log.debug("LRUCache = $pipes")
+                Log.info("Object Count: Pipes(${pipes.size()}) Stats(${stats.size}) LinkUp(${linkUpTs.size}) UDPChannel(${channelPool.size()}) Pool(${pipePool.size()})")
             }
             lastReport = now
         }
