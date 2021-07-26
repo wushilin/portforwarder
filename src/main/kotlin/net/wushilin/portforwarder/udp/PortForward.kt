@@ -11,18 +11,20 @@ import kotlin.system.exitProcess
 val targetMap = mutableMapOf<DatagramChannel, Pair<String, Int>>()
 
 // Stores the UDPPipe to avoid memory allocation
-val pipePool = Pool(10, { UDPPipe() }) {
-    it.reset()
-}
+val pipePool = Pool(1,
+    supplier = { UDPPipe(null, null, null, null, null) },
+    resetter = null,
+    garbageCollector = null)
 
 // Stores all current bi-directional pipe mapping pairs
 // from clientaddress -> UDPPipe
 // from localaddress -> UDPipe
 lateinit var pipes: LRUCache<SocketAddress, UDPPipe>
 
-var channelPool = Pool(1000, {newChannel()}, { recycle(it) }) {
-    close(it)
-}
+var channelPool = Pool(1, supplier = {newChannel()}, resetter={ recycle(it) },
+    garbageCollector = {
+        destroy(it)
+    })
 // Link uptime, by using localClient address -> remote server.
 val linkUpTs = mutableMapOf<SocketAddress, Long>()
 
@@ -71,13 +73,13 @@ fun newChannel():DatagramChannel {
 }
 
 fun recycle(channel:DatagramChannel) {
-    if(Log.isDebugEnabled()) {
-            Log.debug("Disconnecting channel for reuse: ${channel.localAddress}")
+    if(Log.isInfoEnabled()) {
+            Log.info("Disconnecting channel for reuse: ${channel.localAddress}")
     }
     channel.disconnect()
 }
 
-fun close(channel:DatagramChannel) {
+fun destroy(channel:DatagramChannel) {
     if(Log.isInfoEnabled()) {
             Log.info("Closing channel for good: ${channel.localAddress}")
     }
@@ -120,6 +122,9 @@ fun main(args: Array<String>) {
     reportInterval = Config.get("stats.interval", 30000) { it.toLong() }
     cacheSize = Config.get("conn.track.max", 10000) { it.toInt() }
     pipes = LRUCache(cacheSize * 2)
+
+    channelPool.resize(cacheSize)
+    pipePool.resize(cacheSize)
     val selector: Selector = Selector.open()
     val argsParsed = HostUtils.parse(args)
     for (nextArg in argsParsed.entries) {
@@ -158,7 +163,7 @@ fun main(args: Array<String>) {
     while (true) {
         val selectCount = selector.select(1000)
         if (selectCount > 0 && Log.isDebugEnabled()) {
-            Log.debug("$selectCount key(s) selected. pipes(${pipes.size()}) stats(${stats.size}) linkup(${linkUpTs.size} pool(${pipePool.size()}))")
+            Log.debug("$selectCount key(s) selected.")
         }
         val now = System.currentTimeMillis()
         if (now - lastReport > reportInterval) {
@@ -235,7 +240,7 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
             newClient.connect(destAddress)
             val selectionKey = newClient.register(selector, SelectionKey.OP_READ)
             eventPipe = pipePool.acquire()
-            eventPipe.reinitialize(remoteAddress, channel, newClient, destAddress, selectionKey)
+            eventPipe.reuse(remoteAddress, channel, newClient, destAddress, selectionKey)
 
             val evicted1 = pipes.put(eventPipe.remoteClientAddress()!!, eventPipe)
             val evicted2 = pipes.put(eventPipe.localClientAddress()!!, eventPipe)
@@ -269,7 +274,7 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
             eventPipe = pipes.get(remoteAddress)!!
             while (buffer.hasRemaining()) {
                 try {
-                    eventPipe.localClient!!.write(buffer)
+                    eventPipe.localClient()!!.write(buffer)
                 } catch (ex: Exception) {
                     if (Log.isWarnEnabled()) {
                         Log.warn("Failed to write to $destAddress, data might be lost: $ex")
@@ -290,7 +295,7 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
         }
         destAddress = eventPipe.remoteClientAddress()
         while (buffer.hasRemaining()) {
-            eventPipe.localListen!!.send(buffer, eventPipe.remoteClientAddress())
+            eventPipe.localListen()?.send(buffer, eventPipe.remoteClientAddress())
         }
         addStats(eventPipe.localClientAddress()!!, readCount)
     }
@@ -318,9 +323,9 @@ fun cleanup(session: UDPPipe?) {
     }
     try {
         if (Log.isInfoEnabled()) {
-            Log.info("Pipe closed for ${session.client} <== ${session.listenAddress()} === ${session.localClientAddress()} ==> ${session.remote}")
-            Log.info("  >> Transfer stats: ${session.client} => ${session.remote}: ${bytesToString(stats[session.remoteClientAddress()])}")
-            Log.info("  >> Transfer stats: ${session.client} <= ${session.remote}: ${bytesToString(stats[session.localClientAddress()])}")
+            Log.info("Pipe closed for ${session.remoteClientAddress()} <== ${session.localListenAddress()} === ${session.localClientAddress()} ==> ${session.targetAddress()}")
+            Log.info("  >> Transfer stats: ${session.remoteClientAddress()} => ${session.targetAddress()}: ${bytesToString(stats[session.remoteClientAddress()])}")
+            Log.info("  >> Transfer stats: ${session.remoteClientAddress()} <= ${session.targetAddress()}: ${bytesToString(stats[session.localClientAddress()])}")
             val now = System.currentTimeMillis()
             val up = linkUpTs[session.localClientAddress()] ?: now
             val duration = Duration.ofMillis(now - up)
@@ -331,11 +336,11 @@ fun cleanup(session: UDPPipe?) {
             stats.remove(it)
             linkUpTs.remove(it)
         }
-        session.key?.cancel()
+        session.key()?.cancel()
         activeRequests--
-        session.closed = true
+        session.close()
     } finally {
-        channelPool.release(session.localClient!!)
+        channelPool.release(session.localClient()!!)
         // release will reset the session as well using pool config.
         pipePool.release(session)
     }

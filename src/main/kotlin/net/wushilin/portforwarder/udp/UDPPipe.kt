@@ -4,11 +4,11 @@ import java.net.SocketAddress
 import java.nio.channels.DatagramChannel
 import java.nio.channels.SelectionKey
 
-data class UDPPipe(var client: SocketAddress?=null, var localListen:DatagramChannel?=null,
-                   var localClient:DatagramChannel? = null,
-                   var remote:SocketAddress?=null, var key: SelectionKey? = null, var closed:Boolean =true) {
-    fun reinitialize(client1:SocketAddress, localListen1:DatagramChannel, localClient1:DatagramChannel,
-                     remote1:SocketAddress, key1:SelectionKey) {
+data class UDPPipe(private var client: SocketAddress?, private var localListen:DatagramChannel?,
+                   private var localClient:DatagramChannel?,
+                   private var remote:SocketAddress?, private var key: SelectionKey?, private var closed:Boolean = false) {
+    fun reuse(client1:SocketAddress, localListen1:DatagramChannel, localClient1:DatagramChannel,
+              remote1:SocketAddress, key1:SelectionKey) {
         closed = false
         client = client1
         localListen = localListen1
@@ -17,19 +17,13 @@ data class UDPPipe(var client: SocketAddress?=null, var localListen:DatagramChan
         key = key1
     }
 
-    fun reset() {
-        closed = true
-        client = null
-        localListen = null
-        localClient = null
-        key = null
-        remote = null
-    }
     fun remoteClientAddress():SocketAddress? = client
-    fun listenAddress():SocketAddress? = localListen?.localAddress
+    fun localListenAddress():SocketAddress? = localListen?.localAddress
     fun targetAddress():SocketAddress? = remote!!
     fun localClientAddress():SocketAddress? = localClient?.localAddress
-
+    fun localClient():DatagramChannel? = localClient
+    fun localListen():DatagramChannel? = localListen
+    fun key():SelectionKey? = key
     fun isClosed():Boolean {
         return closed
     }

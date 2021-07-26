@@ -4,7 +4,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.*
 
-class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->Unit)? = null, val cleaner:((T)->Unit)?=resetter) {
+class Pool<T>(private var maxSize: Int, private val supplier:()->T, private val resetter:((T)->Unit)? = null, private val garbageCollector:((T)->Unit)?=resetter) {
     private val buffer = LinkedList<T>()
     private var hardAcquireCount = 0L
     private var acquireCount = 0L
@@ -37,6 +37,7 @@ class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->U
 
     private fun hardAcquire():T {
         hardAcquireCount++
+
         return supplier()
     }
 
@@ -47,7 +48,7 @@ class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->U
     }
 
     private fun hardRelease(value:T) {
-        cleaner?.let {
+        garbageCollector?.let {
             it(value)
         }
     }
