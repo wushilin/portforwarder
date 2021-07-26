@@ -62,16 +62,6 @@ var cacheSize = 0
 // Check eviction
 var evictionCheckInterval = 30000L
 
-fun setupArgs():Array<String> {
-    listOf("conn.track.max=10", "idle.timeout=10000", "stats.interval=1000", "log.level=1").forEach {
-        val index = it.indexOf("=")
-        val firstPart = it.substring(0, index)
-        val secondPart = it.substring(index + 1)
-        System.setProperty(firstPart, secondPart)
-    }
-    return arrayOf("127.0.0.1:15353::8.8.8.8:53")
-}
-
 fun newChannel():DatagramChannel {
     val newClient: DatagramChannel = DatagramChannel.open()
     // choose random port
@@ -89,8 +79,7 @@ fun close(channel:DatagramChannel) {
     println("Closing channel ${channel.localAddress}")
     channel.close()
 }
-fun main(args1: Array<String>) {
-    var args = setupArgs()
+fun main(args: Array<String>) {
     if (args.isEmpty()) {
         println("Usage: java -jar portforwarder.jar <localbind>::<remote_target>")
         println("Where:")
