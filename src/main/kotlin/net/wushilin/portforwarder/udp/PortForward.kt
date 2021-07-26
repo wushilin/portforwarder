@@ -71,12 +71,16 @@ fun newChannel():DatagramChannel {
 }
 
 fun recycle(channel:DatagramChannel) {
-    println("Disconnecting channel ${channel.localAddress}")
+    if(Log.isDebugEnabled()) {
+            Log.debug("Disconnecting channel for reuse: ${channel.localAddress}")
+    }
     channel.disconnect()
 }
 
 fun close(channel:DatagramChannel) {
-    println("Closing channel ${channel.localAddress}")
+    if(Log.isInfoEnabled()) {
+            Log.info("Closing channel for good: ${channel.localAddress}")
+    }
     channel.close()
 }
 fun main(args: Array<String>) {
@@ -169,7 +173,7 @@ fun main(args: Array<String>) {
                         bytesToString(
                             Runtime.getRuntime().totalMemory()
                         )
-                    }, hitRate(${pipePool.hitRate()})"
+                    }, Sock hitRate(${channelPool.hitRate()})"
                 )
                 Log.info("Object Count: Pipes(${pipes.size()}) Stats(${stats.size}) LinkUp(${linkUpTs.size}) Pool(${pipePool.size()})")
                 Log.debug("LRUCache = $pipes")
@@ -232,7 +236,6 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
             newClient.connect(destAddress)
             val selectionKey = newClient.register(selector, SelectionKey.OP_READ)
             eventPipe = pipePool.acquire()
-            println("$remoteAddress, ${newClient.localAddress}")
             eventPipe.reinitialize(remoteAddress, channel, newClient, destAddress, selectionKey)
 
             val evicted1 = pipes.put(eventPipe.remoteClientAddress()!!, eventPipe)
@@ -311,9 +314,7 @@ fun cleanup(session: UDPPipe?) {
     if (session == null) {
         return
     }
-    println("Handling clean up of session@${System.identityHashCode(session)}")
     if (session.isClosed()) {
-        println("Cleaning up <cleaned up session> - NOOP")
         return
     }
     try {
@@ -327,7 +328,6 @@ fun cleanup(session: UDPPipe?) {
             Log.info("  >> Link up: $duration")
         }
         listOfNotNull(session.remoteClientAddress(), session.localClientAddress()).forEach {
-            println("Cleaning up $it")
             pipes.remove(it)
             stats.remove(it)
             linkUpTs.remove(it)
@@ -336,7 +336,6 @@ fun cleanup(session: UDPPipe?) {
         activeRequests--
         session.closed = true
     } finally {
-        println("Releasing ${session.localClient!!.localAddress}")
         channelPool.release(session.localClient!!)
         // release will reset the session as well using pool config.
         pipePool.release(session)
