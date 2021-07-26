@@ -3,11 +3,14 @@ A NIO based, simple and scalable port forwarding written in Kotlin.
 This program supports both TCP forwarding and UDP forwarding. 
 use `java -jar build/libs/portforwarder-1.0.jar` for TCP flavor.
 
-use `java -Dconn.track.max=10000 -Didle.timeout=3600000 -Dlog.level=0 -classpath build/libs/portforwarder-1.0.jar net.wushilin.portforwarder.udp.PortForwardKt 127.0.0.1:15353::8.8.8.8:53 127.0.0.1:1194::earth.wushilin.net:1194 127.0.0.1:1819::localhost:1818` for UDP forwarding.
+use `java -classpath build/libs/portforwarder-1.0.jar net.wushilin.portforwarder.udp.PortForwardKt` for UDP flavor.
+
+Typical UDP use cases: Forwarding dns, openvpn connections etc.
 
 UDP forwarding is experimental at the moment, I haven't tested it enough.
+OpenVPN & DNS seems to be working very well. I don't have a lot app to test UDP anyway.
 
-It works like nginx. A single thread can handle thousands of concurrent connections.
+In principal, it works like nginx. A single thread can handle thousands of concurrent connections.
 
 The program allows you to forward ports from the the host running this program to a remote host.
 
@@ -23,6 +26,8 @@ It runs a single thread, no matter how many connections.
 It uses only 1MB for buffer, no matter how many connections.
 
 It almost never allocate objects except for the SocketChannels, so it would not run GC (almost).
+
+# The program only need 16MB heap! More is OK but is likely to be a waste!
 
 # Show me the numbers!
 The following shows the original host, not via portforwarder performance.
@@ -148,8 +153,9 @@ Based on my test, the SCP over forwarded port works equally well.
 It utilizes the zero copy technology.
 
 # Running as service in Linux (systemd flavor)
+TCP Forwader example
 ```shell
-# Sample systemd file
+# Sample systemd file for TCP Forwarding
 [Unit]
 Description=The port forwarder by Wu Shilin
 After=network.target
@@ -158,13 +164,35 @@ After=network.target
 Type=simple
 User=wushilin
 Group=wushilin
-ExecStart=/usr/bin/java -Denable.timestamp.in.log=false -jar \
+ExecStart=/usr/bin/java -Xmx16m -Denable.timestamp.in.log=false -jar \
   /opt/portforwarder-1.0.jar \
   localhost:2222::remote.host.com:22 \
   0.0.0.0:9443::www.google.com:443
 Restart=always
 RestartSec=3
 SyslogIdentifier=portforwarder
+
+[Install]
+WantedBy=multi-user.target
+```
+
+UDP Forwarder example
+```shell
+# Sample systemd file for UDP forwarding
+[Unit]
+Description=The UDP port forwarder by Wu Shilin
+After=network.target
+
+[Service]
+User=wushilin
+Group=wushilin
+Type=simple
+ExecStart=/usr/bin/java -Xmx16m -Dconn.track.max=1000 -Didle.timeout=600000 -Dlog.level=1 -Dstats.interval=30000 -Denable.timestamp.in.log=false -classpath \
+  /opt/workspace/portforwarder/build/libs/portforwarder-1.0.jar net.wushilin.portforwarder.udp.PortForwardKt \
+  0.0.0.0:2194::my-vpn.host.com:1194
+Restart=always
+RestartSec=3
+SyslogIdentifier=portforwarder-udp
 
 [Install]
 WantedBy=multi-user.target

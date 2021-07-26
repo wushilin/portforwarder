@@ -1,12 +1,27 @@
 package net.wushilin.portforwarder.common
 
+import java.util.*
+
 data class TimestampedKV<K,V>(var key:K, var value:V) {
     var timestamp = System.currentTimeMillis()
+    override fun toString():String {
+        return "$key => $value @ ${Date(timestamp)}"
+    }
 }
 
-class LRUCache<K, V>(val maxSize:Int) {
+class LRUCache<K, V>(private var maxSize:Int) {
     var nodeMap = mutableMapOf<K, Node<TimestampedKV<K, V>>>()
     var nodeList = NodeList<TimestampedKV<K, V>>()
+
+    fun resize(newSize:Int) {
+        if(newSize < maxSize) {
+            throw IllegalArgumentException("Cache can't be reduced.")
+        }
+        maxSize = newSize
+    }
+    fun maxSize():Int {
+        return maxSize;
+    }
 
     // Put a cache. Return the evicted object, if any. The evicted object should be cleaned up
     fun put(key:K, value:V):V? {
@@ -59,9 +74,9 @@ class LRUCache<K, V>(val maxSize:Int) {
         return nodeList.head!!.value.timestamp
     }
     fun evictOne():V? {
-        val head = nodeList.removeHead() ?: return null
-        nodeMap.remove(head.value.key)
-        return head.value.value
+        val headNode = nodeList.removeHead() ?: return null
+        nodeMap.remove(headNode.value.key)
+        return headNode.value.value
     }
 
     fun get(key:K):V? {
@@ -77,7 +92,7 @@ class LRUCache<K, V>(val maxSize:Int) {
     }
 
     override fun toString():String {
-        return nodeMap.toString() + ":" + nodeList.toString()
+        return "$nodeMap:$nodeList"
     }
 
     fun size():Int {
