@@ -4,10 +4,18 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.*
 
-class Pool<T>(private val size: Int, val supplier:()->T, val cleaner:((T)->Unit)? = null) {
+class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->Unit)? = null, val cleaner:((T)->Unit)?=resetter) {
     private val buffer = LinkedList<T>()
     private var hardAcquireCount = 0L
     private var acquireCount = 0L
+<<<<<<< HEAD
+=======
+
+    fun resize(max:Int) {
+        maxSize = max
+    }
+
+>>>>>>> refs/remotes/origin/main
     fun acquire():T {
         acquireCount++
         return if(buffer.size == 0) {
@@ -18,6 +26,7 @@ class Pool<T>(private val size: Int, val supplier:()->T, val cleaner:((T)->Unit)
     }
 
     fun release(value:T) {
+<<<<<<< HEAD
         try {
             if (buffer.size >= size) {
                 return
@@ -26,6 +35,14 @@ class Pool<T>(private val size: Int, val supplier:()->T, val cleaner:((T)->Unit)
         } finally {
             cleaner?.let { it(value) }
         }
+=======
+        if (buffer.size >= maxSize) {
+            hardRelease(value)
+            return
+        }
+        softRelease(value)
+        buffer.addLast(value)
+>>>>>>> refs/remotes/origin/main
     }
 
     fun size():Int {
@@ -37,6 +54,21 @@ class Pool<T>(private val size: Int, val supplier:()->T, val cleaner:((T)->Unit)
         return supplier()
     }
 
+<<<<<<< HEAD
+=======
+    private fun softRelease(value:T) {
+        resetter?.let {
+            it(value)
+        }
+    }
+
+    private fun hardRelease(value:T) {
+        cleaner?.let {
+            it(value)
+        }
+    }
+
+>>>>>>> refs/remotes/origin/main
     fun hardAcquireCount():Long {
         return hardAcquireCount
     }
@@ -48,4 +80,8 @@ class Pool<T>(private val size: Int, val supplier:()->T, val cleaner:((T)->Unit)
         return BigDecimal(acquireCount - hardAcquireCount).divide(BigDecimal(acquireCount),
             2, RoundingMode.HALF_UP).toDouble()
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> refs/remotes/origin/main
