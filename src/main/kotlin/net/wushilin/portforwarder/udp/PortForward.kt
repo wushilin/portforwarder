@@ -11,15 +11,7 @@ import kotlin.system.exitProcess
 val targetMap = mutableMapOf<DatagramChannel, Pair<String, Int>>()
 
 // Stores the UDPPipe to avoid memory allocation
-<<<<<<< HEAD
-val pipePool = Pool(10, {UDPPipe()}) {
-=======
-<<<<<<< HEAD
-val pipePool = Pool(10, {UDPPipe()}) {
-=======
 val pipePool = Pool(10, { UDPPipe() }) {
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
->>>>>>> refs/remotes/origin/main
     it.reset()
 }
 
@@ -191,13 +183,7 @@ fun main(args1: Array<String>) {
                     }, hitRate(${pipePool.hitRate()})"
                 )
                 Log.info("Object Count: Pipes(${pipes.size()}) Stats(${stats.size}) LinkUp(${linkUpTs.size}) Pool(${pipePool.size()})")
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
                 Log.debug("LRUCache = $pipes")
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
->>>>>>> refs/remotes/origin/main
             }
             lastReport = now
         }
@@ -250,33 +236,6 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
     if (isListener) {
         val targetPair = targetMap[channel]!!
         destAddress = HostUtils.convertToAddress(targetPair)
-<<<<<<< HEAD
-        var eventPipe:UDPPipe?
-        // client is ready to send to me and I don't have the session up yet!
-        if(pipes.get(remoteAddress) == null) {
-            val newClient:DatagramChannel = DatagramChannel.open()
-            newClient.configureBlocking(false)
-            // choose random port
-            newClient.bind(null)
-            // bind to the destination, not for reusing.
-            newClient.connect(destAddress)
-            newClient.register(selector, SelectionKey.OP_READ)
-            eventPipe = pipePool.acquire()
-            eventPipe.reinitialize(remoteAddress, channel, newClient, destAddress)
-
-            val evicted1 = pipes.put(eventPipe.remoteClientAddress(), eventPipe)
-            val evicted2 = pipes.put(eventPipe.localClientAddress(), eventPipe)
-            var evictedCount = 0
-            if(evicted1 != null) {
-                evictedCount++
-            }
-            if(evicted2 != null) {
-                evictedCount++
-            }
-            if(evictedCount > 0) {
-                if(Log.isInfoEnabled()) {
-                    Log.info("Evicted $evictedCount connections due to max conn tracking ($cacheSize)")
-=======
         var eventPipe: UDPPipe?
         // client is ready to send to me and I don't have the session up yet!
         if (pipes.get(remoteAddress) == null) {
@@ -293,7 +252,6 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
             if (evictedList.isNotEmpty()) {
                 if (Log.isInfoEnabled()) {
                     Log.info("Evicted ${evictedList.size} connections due to max conn tracking ($cacheSize)")
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
                 }
                 evictedList.forEach {
                     cleanup(it)
@@ -321,16 +279,8 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
             while (buffer.hasRemaining()) {
                 try {
                     eventPipe.localClient!!.write(buffer)
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> refs/remotes/origin/main
-                } catch(ex:Exception) {
-                    if(Log.isWarnEnabled()) {
-=======
                 } catch (ex: Exception) {
                     if (Log.isWarnEnabled()) {
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
                         Log.warn("Failed to write to $destAddress, data might be lost: $ex")
                     }
                     break
@@ -347,24 +297,11 @@ fun handleRead(channel: DatagramChannel, key: SelectionKey, buffer: ByteBuffer, 
             }
             return
         }
-<<<<<<< HEAD
-        destAddress = eventPipe.client
-        while(buffer.hasRemaining()) {
-            eventPipe.localListen!!.send(buffer, eventPipe.client)
-<<<<<<< HEAD
-        }
-        addStats(eventPipe.localClient!!.localAddress, readCount)
-=======
-        }
-        addStats(eventPipe.localClient!!.localAddress, readCount)
-=======
         destAddress = eventPipe.remoteClientAddress()
         while (buffer.hasRemaining()) {
             eventPipe.localListen!!.send(buffer, eventPipe.remoteClientAddress())
         }
         addStats(eventPipe.localClientAddress()!!, readCount)
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
->>>>>>> refs/remotes/origin/main
     }
     if (Log.isDebugEnabled()) {
         Log.debug("Copied ${readCount} bytes from $remoteAddress to $destAddress")
@@ -385,25 +322,12 @@ fun cleanup(session: UDPPipe?) {
     if (session == null) {
         return
     }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> refs/remotes/origin/main
-    try {
-        if (session.isClosed()) {
-            return
-        }
-<<<<<<< HEAD
-=======
-=======
     println("Handling clean up of session@${System.identityHashCode(session)}")
     if (session.isClosed()) {
         println("Cleaning up <cleaned up session> - NOOP")
         return
     }
     try {
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
->>>>>>> refs/remotes/origin/main
         if (Log.isInfoEnabled()) {
             Log.info("Pipe closed for ${session.client} <== ${session.listenAddress()} === ${session.localClientAddress()} ==> ${session.remote}")
             Log.info("  >> Transfer stats: ${session.client} => ${session.remote}: ${bytesToString(stats[session.remoteClientAddress()])}")
@@ -413,34 +337,12 @@ fun cleanup(session: UDPPipe?) {
             val duration = Duration.ofMillis(now - up)
             Log.info("  >> Link up: $duration")
         }
-<<<<<<< HEAD
-        listOf(session.remoteClientAddress(), session.localClientAddress()).forEach {
-=======
-<<<<<<< HEAD
-        listOf(session.remoteClientAddress(), session.localClientAddress()).forEach {
-=======
         listOfNotNull(session.remoteClientAddress(), session.localClientAddress()).forEach {
             println("Cleaning up $it")
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
->>>>>>> refs/remotes/origin/main
             pipes.remove(it)
             stats.remove(it)
             linkUpTs.remove(it)
         }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> refs/remotes/origin/main
-
-        close(session.localClient!!)
-        activeRequests--
-        session.closed = true
-    } finally {
-        // release will reset the session as well using pool config.
-        pipePool.release(session)
-    }
-    return
-=======
         session.key?.cancel()
         activeRequests--
         session.closed = true
@@ -450,6 +352,5 @@ fun cleanup(session: UDPPipe?) {
         // release will reset the session as well using pool config.
         pipePool.release(session)
     }
->>>>>>> 85695aa70d92d49480d7d92766a62777b473d960
 }
 

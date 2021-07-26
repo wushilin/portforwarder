@@ -8,14 +8,11 @@ class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->U
     private val buffer = LinkedList<T>()
     private var hardAcquireCount = 0L
     private var acquireCount = 0L
-<<<<<<< HEAD
-=======
 
     fun resize(max:Int) {
         maxSize = max
     }
 
->>>>>>> refs/remotes/origin/main
     fun acquire():T {
         acquireCount++
         return if(buffer.size == 0) {
@@ -26,23 +23,12 @@ class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->U
     }
 
     fun release(value:T) {
-<<<<<<< HEAD
-        try {
-            if (buffer.size >= size) {
-                return
-            }
-            buffer.addLast(value)
-        } finally {
-            cleaner?.let { it(value) }
-        }
-=======
         if (buffer.size >= maxSize) {
             hardRelease(value)
             return
         }
         softRelease(value)
         buffer.addLast(value)
->>>>>>> refs/remotes/origin/main
     }
 
     fun size():Int {
@@ -54,8 +40,6 @@ class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->U
         return supplier()
     }
 
-<<<<<<< HEAD
-=======
     private fun softRelease(value:T) {
         resetter?.let {
             it(value)
@@ -68,7 +52,6 @@ class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->U
         }
     }
 
->>>>>>> refs/remotes/origin/main
     fun hardAcquireCount():Long {
         return hardAcquireCount
     }
@@ -80,8 +63,5 @@ class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->U
         return BigDecimal(acquireCount - hardAcquireCount).divide(BigDecimal(acquireCount),
             2, RoundingMode.HALF_UP).toDouble()
     }
-<<<<<<< HEAD
+
 }
-=======
-}
->>>>>>> refs/remotes/origin/main
