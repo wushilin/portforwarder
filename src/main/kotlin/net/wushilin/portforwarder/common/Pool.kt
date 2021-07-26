@@ -1,10 +1,20 @@
 package net.wushilin.portforwarder.common
 
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.*
 
-class Pool<T>(private val size: Int, val supplier:()->T, val cleaner:((T)->Unit)? = null) {
+class Pool<T>(private var maxSize: Int, val supplier:()->T, val resetter:((T)->Unit)? = null, val cleaner:((T)->Unit)?=resetter) {
     private val buffer = LinkedList<T>()
+    private var hardAcquireCount = 0L
+    private var acquireCount = 0L
+
+    fun resize(max:Int) {
+        maxSize = max
+    }
+
     fun acquire():T {
+        acquireCount++
         return if(buffer.size == 0) {
             hardAcquire()
         } else {
@@ -13,12 +23,45 @@ class Pool<T>(private val size: Int, val supplier:()->T, val cleaner:((T)->Unit)
     }
 
     fun release(value:T) {
-        if(buffer.size >= size) {
+        if (buffer.size >= maxSize) {
+            hardRelease(value)
             return
         }
+        softRelease(value)
         buffer.addLast(value)
     }
+
+    fun size():Int {
+        return buffer.size
+    }
+
     private fun hardAcquire():T {
+        hardAcquireCount++
         return supplier()
     }
+
+    private fun softRelease(value:T) {
+        resetter?.let {
+            it(value)
+        }
+    }
+
+    private fun hardRelease(value:T) {
+        cleaner?.let {
+            it(value)
+        }
+    }
+
+    fun hardAcquireCount():Long {
+        return hardAcquireCount
+    }
+
+    fun hitRate():Double {
+        if(acquireCount == 0L) {
+            return 0.0;
+        }
+        return BigDecimal(acquireCount - hardAcquireCount).divide(BigDecimal(acquireCount),
+            2, RoundingMode.HALF_UP).toDouble()
+    }
+
 }

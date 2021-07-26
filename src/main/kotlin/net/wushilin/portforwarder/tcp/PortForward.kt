@@ -20,15 +20,22 @@ data class CopyConfig(
     var readerKey: SelectionKey?,
     var writerKey: SelectionKey?
 ) {
-    init {
+    fun reinitialize(reader1:SocketChannel, writer1:SocketChannel, readerKey1:SelectionKey?, writerKey1:SelectionKey?) {
+        reader = reader1
+        writer = writer1
+        readerKey = readerKey1
+        writerKey = writerKey1
+    }
+    fun reset() {
+        reader = null
+        writer = null
+        readerKey = null
+        writerKey = null
     }
 }
 
 val copyConfigPool = Pool(10000, { CopyConfig(null, null, null, null) }) {
-    it.reader = null
-    it.writer = null
-    it.readerKey = null
-    it.writerKey = null
+    it.reset()
 }
 
 // Stores the server socket and remote targets
@@ -166,8 +173,9 @@ fun main(args: Array<String>) {
                         bytesToString(
                             Runtime.getRuntime().totalMemory()
                         )
-                    }/MAX=${bytesToString(Runtime.getRuntime().maxMemory())}"
+                    }, hitRate(${copyConfigPool.hitRate()})"
                 )
+                Log.info("Object Count: Pipes(${pipes.size}) Stats(${stats.size}) LinkUp(${linkUpTs.size}) Pool(${copyConfigPool.size()})")
             }
             lastReport = now
         }
@@ -210,10 +218,7 @@ fun main(args: Array<String>) {
             if (readyWriters.contains(nextWriter)) {
                 val writerKey = readyWriters[nextWriter]!!
                 val config = copyConfigPool.acquire()
-                config.reader = nextReader
-                config.writer = nextWriter
-                config.readerKey = readerKey
-                config.writerKey = writerKey
+                config.reinitialize(nextReader, nextWriter, readerKey, writerKey)
                 toCopy.add(config)
             }
         }
@@ -237,6 +242,7 @@ fun main(args: Array<String>) {
                     readerKey.interestOps(readerKey.interestOps() or SelectionKey.OP_READ)
                 }
             } finally {
+                // release will reset it using the cleaner
                 copyConfigPool.release(task)
             }
         }
