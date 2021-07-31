@@ -86,6 +86,7 @@ fun destroy(channel:DatagramChannel) {
     channel.close()
 }
 fun main(args: Array<String>) {
+    Config.setUp()
     if (args.isEmpty()) {
         println("Usage: java -jar portforwarder.jar <localbind>::<remote_target>")
         println("Where:")

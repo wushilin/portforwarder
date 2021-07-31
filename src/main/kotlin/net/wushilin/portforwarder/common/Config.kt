@@ -1,6 +1,10 @@
 package net.wushilin.portforwarder.common
 
 object Config {
+    fun setUp() {
+        java.security.Security.setProperty("networkaddress.cache.ttl" , "60")
+        java.security.Security.setProperty("networkaddress.cache.negative.ttl", "30")
+    }
     fun <T> get(key:String, defaultValue:T, print:Boolean = true, converter:(String)->T):T{
         val result = getInternal(key, defaultValue, print, converter)
         if(print && Log.isInfoEnabled()) {
